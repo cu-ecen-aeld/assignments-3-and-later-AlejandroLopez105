@@ -16,8 +16,12 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
-
-    return true;
+    if (system(cmd) == 0){
+        return true;
+        }
+    else{
+        return false;
+        };
 }
 
 /**
@@ -47,7 +51,7 @@ bool do_exec(int count, ...)
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+    //command[count] = command[count];
 
 /*
  * TODO:
@@ -58,10 +62,22 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+    int status;
+    pid_t pid;
 
+    pid = fork();                  //create the new child process 
+    if(pid == -1)
+        return false;
+    else if (pid == 0){
+        execv(command[0], command);//use execv for the program to be executed
+        exit(-1);
+    }
+    if (waitpid(pid, &status, 0) == -1)
+        return false;
+    else if(WIFEXITED(status))
+        return WEXITSTATUS(status) == 0;
     va_end(args);
-
-    return true;
+    return false;
 }
 
 /**
