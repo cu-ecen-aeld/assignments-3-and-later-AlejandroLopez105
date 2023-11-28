@@ -65,17 +65,18 @@ bool do_exec(int count, ...)
     int status;
     pid_t pid;
 
-    pid = fork();                  //create the new child process 
-    if(pid == -1)
+    pid = fork();                       //create the new child process 
+    if(pid == -1)                       //creation error
         return false;
-    else if (pid == 0){
-        execv(command[0], command);//use execv for the program to be executed
-        exit(-1);
+    else if (pid == 0){                 //child process, execute the commands
+        execv(command[0], command);     //use execv for the program to be executed
+        exit(EXIT_FAILURE);             
     }
-    if (waitpid(pid, &status, 0) == -1)
+    if (waitpid(pid, &status, 0) < 0) //suspend execution of the calling process until a child changes its state (==-1 means wait for any child process)
         return false;
-    else if(WIFEXITED(status))
-        return WEXITSTATUS(status) == 0;
+    if(WIFEXITED(status))               //returns true if the child terminated normally     
+        return WEXITSTATUS(status) == 0;//returns the exit status of the child (use only if WIFEXITED()== true) 
+    
     va_end(args);
     return false;
 }
@@ -98,7 +99,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+    //command[count] = command[count];
 
 
 /*
@@ -108,8 +109,28 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+    int status;
+    pid_t pid;
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    if (fd < 0) {return false; }                   //in case of failure
+    pid = fork();
+    switch (pid) {
+    case -1://if it failed to create a child                                                       
+        return false;
+    case 0://successful creation of the child
+        if (dup2(fd, 1) < 0) {//create a copy of the file descriptor
+            return false; }
+        close(fd);
+        execv(command[0], command); 
+        exit(EXIT_FAILURE);
+    default://a positive value contains the process ID
+        close(fd);
+        if (waitpid(pid, &status, 0) < 0)
+            return false;
+        if(WIFEXITED(status))
+            return WEXITSTATUS(status) == 0;
+    }
 
     va_end(args);
-
     return true;
 }
